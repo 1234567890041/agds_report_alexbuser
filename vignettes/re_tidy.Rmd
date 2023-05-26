@@ -1,0 +1,6 @@
+#this is the re_tidy file for report exercise 3.5
+
+```{r}
+sum1<-1+1
+sum1
+```
