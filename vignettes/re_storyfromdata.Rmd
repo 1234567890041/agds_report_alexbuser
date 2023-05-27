@@ -1,0 +1,25 @@
+# Telling a Story from data
+this is the file for the report exercise 4.4 "telling a story from data"
+# 0. General code
+```{r}
+library(ggplot2)
+```
+
+# 1. Data import
+```{r}
+airquality1<-data.frame(airquality)
+```
+
+# Plots
+```{r}
+ggplot(airquality1)
+```
+
+
+# Analysis
+
+# Figures
+
+# Description
+
+# Interpretation and discussion
