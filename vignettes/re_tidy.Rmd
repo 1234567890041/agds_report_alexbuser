@@ -1,6 +1,69 @@
-#this is the re_tidy file for report exercise 3.5
+# re_tidy
+this is the re_tidy file for report exercise 3.5
+
+# 0.general code
+```{r message=FALSE, warning=FALSE}
+#import libraries, if necessary
+library(dplyr)
+```
+# 1.Cleaning the data
+The data got cleaned manually using an table calculation program and then got saved as an .csv-file.
+
+## Datasource
+Data from the supplementary material of the following paper: \n
+Groenigen, Kees Jan van, Xuan Qi, Craig W. Osenberg, Yiqi Luo, and Bruce A. Hungate. “Faster Decomposition Under Increased Atmospheric CO2 Limits Soil Carbon Storage.” Science 344, no. 6183 (May 2, 2014): 508–9. https://doi.org/10.1126/science.1249534.
+
+For direct download of the xlsx-file, use the following link:
+https://www.science.org/doi/suppl/10.1126/science.1249534/suppl_file/1249534s1-s6.xlsx
+
+## Steps in cleaning the data
+Here the Data is cleaned by hand using table calculation software.
+Deleted line 3 and added the values”mean mean n n” to the line 4 in the corresponding table cells (F G H I).
+Deleted line 2 and “g C m-2” in the line 2.
+Manually added the corresponding experiment to the line.
+For example added “ArizonaFACE - wheat - high N” to the three following lines of the first data line Manually deleted the empty lines.
+The cleaned file has now 235 lines included the header line instead of 288.
+## Importing the data
+importing the experiment data as csv in a dataset
+```{r}
+data1249534s1_s6_only_s1_cleaned_csv<-read.csv(file="../data/data1249534s1_s6_only_s1_cleaned_csv.csv", header=TRUE, sep=";")
+```
+
+# 2.Aggregate per experiment
+creating a new dataset for aggregating data by experiment and calculation of the log rate ratio
+Here the formula ${ RR=ln (\frac{x_{increased}}{x_{ambient}}) }$  for the log rate ratio is used.
+Aggregating the data by experiment and summarize the logRR.
+```{r}
+dataset_experiment<-data1249534s1_s6_only_s1_cleaned_csv|>select(Experiment,Sample.date,mean.ambient.CO2,mean.increased.CO2)|>mutate(logRR=log(mean.increased.CO2/mean.ambient.CO2))
+```
+## Creating a aggregate per Experiment dataset
+Calculation of the logRR per Experiment
+```{r}
+table_perExperiment<-dataset_experiment|>group_by(Experiment)|>summarise(ambientCO2=mean(mean.ambient.CO2),increasedCO2=mean(mean.increased.CO2),logRR_perExperiment=mean(logRR))
+```
+## Creating a table to present the results
+```{r}
+knitr::kable(table_perExperiment)
+```
+
+# 3.Aggregate per phase
+## Create a dataset from the origin dataset
+add a new row "phase"
+calculate the phase:
+early:    <3
+mid:      >3 till <=6
+late:     >6
 
 ```{r}
-sum1<-1+1
-sum1
+dataset_phase<-data1249534s1_s6_only_s1_cleaned_csv|>select(Experiment,Sample.date,Time..years.,mean.ambient.CO2,mean.increased.CO2)|>mutate(logRR=log(mean.increased.CO2/mean.ambient.CO2))|>mutate(phase=Time..years.)|>mutate(phase=ifelse(phase<3,"early",ifelse(phase<=6,"mid","late")))
 ```
+## Creating a dataset per Phase
+Calculation of the logRR per Phase
+```{r}
+table_perPhase<-dataset_phase|>group_by(phase)|>summarise(ambientCO2=mean(mean.ambient.CO2),increasedCO2=mean(mean.increased.CO2),logRR_perPhase=mean(logRR))
+```
+##create table to present the data per Phase
+```{r}
+knitr::kable(table_perPhase)
+```
+
