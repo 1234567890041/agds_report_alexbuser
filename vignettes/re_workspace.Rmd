@@ -1,0 +1,12 @@
+# Workspace
+this file contains the description of the first report exercise.
+
+A workspace got created on github and got connected to RStudio.
+
+## code example
+this code calculates the sum of 1 and 2.
+```{r}
+sum_1and2<-1+2 #defines a new variable and assignes the sum from 1 and 2 to it
+sum_1and2 #writes the value of the variable to the console
+```
+
