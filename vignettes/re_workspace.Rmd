@@ -3,6 +3,8 @@ this file contains the description of the first report exercise.
 ## General informations
 This repository was created for the course AGDS1
 Student: Alexandre Buser
+username: 1234567890041
+
 
 ## creation of a workspace
 A workspace got created on github and got connected to RStudio.
