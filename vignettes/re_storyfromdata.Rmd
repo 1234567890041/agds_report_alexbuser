@@ -3,23 +3,47 @@ this is the file for the report exercise 4.4 "telling a story from data"
 # 0. General code
 ```{r}
 library(ggplot2)
+library(dplyr)
 ```
 
 # 1. Data import
+The data comes from the source:
+Chambers, J. M., Cleveland, W. S., Kleiner, B. and Tukey, P. A. (1983) Graphical Methods for Data Analysis. Belmont, CA: Wadsworth.
 ```{r}
 airquality1<-data.frame(airquality)
+airquality1<-airquality1|>dplyr::mutate(timeaxis = as.Date(paste(day=airquality1$Day,airquality1$Month,sep="-"),"%d-%m"))
 ```
 
 # Plots
 ```{r}
-ggplot(airquality1)
+ggplot(data=airquality1, aes(x=timeaxis, y=Temp))+geom_line(size=0.5,color="red")+labs(x="Time in months",y="Temperature in Fahrenheit")+geom_line(aes(y=Ozone),size=0.5,color="blue")
+
+```
+in red we have the temperature in Fahrenheit and in blue there is the Ozone in pbb (see help airqualities{datasets})
+
+# Analysis
+Next step is to analyze if there is a linear regregression between ozone and temperature
+```{r}
+lm_ozon_temp<-lm(data=airquality1,formula=airquality1$Ozone~airquality1$Temp)
+summary(lm_ozon_temp)
+```
+The adjusted Rsquared has the value 0.4832 which is quite bad.
+
+# Figures
+```{r}
+ggplot(data=airquality1,aes(x=Ozone,y=Temp))+
+  geom_point(size=0.5)+
+  geom_smooth(method="lm", color="purple")
 ```
 
 
-# Analysis
-
-# Figures
+```{r}
+boxplot(airquality1$Temp~airquality1$Month,data=airquality1,xlab="Months",ylab="Temperature in Fahrenheit")
+```
 
 # Description
+The graphic shows that there is a korrelation between ozone ande the temperature, but not very strong.
+The boxplot shows that in the summer months the temperature are higher than in May.
 
 # Interpretation and discussion
+The Ozone can't be only dependent from Temperature, but as shown there is a light correlation. If a causality is given can't be told.
