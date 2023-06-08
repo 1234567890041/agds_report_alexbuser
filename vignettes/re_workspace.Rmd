@@ -1,6 +1,10 @@
 # Workspace
 this file contains the description of the first report exercise.
+## General informations
+This repository was created for the course AGDS1
+Student: Alexandre Buser
 
+## creation of a workspace
 A workspace got created on github and got connected to RStudio.
 
 ## code example
@@ -9,4 +13,7 @@ this code calculates the sum of 1 and 2.
 sum_1and2<-1+2 #defines a new variable and assignes the sum from 1 and 2 to it
 sum_1and2 #writes the value of the variable to the console
 ```
+## Literature
+This report exercise is based on the tasks in the book for the course AGDS1
 
+Benjamin Stocker, Koen Hufkens, Pepa Arán, & Pascal Schneider. (2023). Applied Geodata Science (v1.0). Zenodo. https://zenodo.org/badge/latestdoi/569245031
