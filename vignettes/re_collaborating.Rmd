@@ -1,0 +1,6 @@
+# Collaborating with git
+
+This is the description for the task from exercise 7 "collaborating with git".
+The steps were done like in the book chapter 7 described.
+My collaborating partner was Martin Sigrist(user: sigipedia).
+The two repositories we worked on are found on my profile.
