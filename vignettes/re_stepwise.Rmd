@@ -1,0 +1,53 @@
+# stepwise
+this is the file re_stepwise for the report exercise 8.5
+some code chunks/structure are inspired of the book AGDS1 (Pepe Aràn 2023)
+
+## import library
+```{r message=FALSE}
+library(ggplot2)
+library(visdat)
+```
+## import data
+The datasource is: https://raw.githubusercontent.com/geco-bern/agds/main/data/df_for_stepwise_regression.csv
+The data got downloaded and stored in the data folder as csv-file.
+
+```{r}
+data_stepwise<-read.csv(file="../data/df_for_stepwise_regression_CSV.csv")
+```
+
+look at the data with "summary"
+```{r}
+summary(data_stepwise)
+```
+so the first two columns aren't numerical, so they aren't usefull for the statisics of numerical data
+
+look at the missing data with "vis_miss"
+```{r}
+plot1<-vis_miss(data_stepwise)
+plot1
+```
+
+Here we can see, that there is 5.7% of the data missing.
+
+## Task 1 of the report exercise 8.5
+
+According to the report_exercise task we have to do the steps 1-3 of the chapter 8.2.3.1 of the AGDS1-Book (Pepe Aràn 2023). As step one p has to be 1, step two is to fit the regressions and calculate Rsquared and finally the step 3 is to select the best fitting modell, so the one with the highest Rsquared-value and then compute the AIC.
+
+The variable GPP_NT_VUT_REF is the one that is intersting for our regression model.
+```{r}
+# for the storage of the calculated values there will be needed some "container" such as for example a vector or a matrix
+vector1<-NULL
+
+
+#for(i in 1:ncol(data_stepwise) ){
+ # vector1[i]<-lm(data=data_stepwise,formula=(data_stepwise$GPP_NT_VUT_REF~data_stepwise$TA_F))
+#}
+
+#summary(lm(data=data_stepwise,formula=(data_stepwise$GPP_NT_VUT_REF~data_stepwise$TA_F)))
+
+lm(data=data_stepwise,formula=(data_stepwise$GPP_NT_VUT_REF~data_stepwise$TA_F))
+
+```
+
+## Task 2 of the report exercise 8.5
+
