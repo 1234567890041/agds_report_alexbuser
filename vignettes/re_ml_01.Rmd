@@ -1,0 +1,291 @@
+---
+
+output:
+  html_document:
+    toc: true
+---
+
+# Machine Learning 1
+This file contains the report exercise chapter 9.4
+
+# Comparison of the linear regression and KNN models
+
+## 1 copy and adapt code from chapter 9
+The code was copied from chapter 9 in the book for the course (Benjamin Stocker 2023) and then adapted.
+### Literature:
+Benjamin Stocker, Koen Hufkens, Pepa Arán, & Pascal Schneider. (2023). Applied Geodata Science (v1.0). Zenodo. https://zenodo.org/badge/latestdoi/569245031
+
+### Code
+#### libraries
+```{r message=FALSE}
+library(dplyr) #for select etc.
+library(lubridate) #for function ymd
+library(ggplot2) #for plotting ggplots
+library(rsample) #for data splitting
+library(recipes) #loads the recipe package
+library(caret) #for machine learning
+library(tidyr) #for drop_na
+```
+
+#### importing Data
+Code from Chapter 9.2.3
+```{r}
+#here read.csv got used
+daily_fluxes <- read.csv("../data/FLX_CH-Dav_FLUXNET2015_FULLSET_DD_1997-2014_1-3.csv") |>
+  # select only the variables we are interested in
+  dplyr::select(TIMESTAMP,
+                GPP_NT_VUT_REF, # the target
+                ends_with("_QC"), # quality control info
+                ends_with("_F"), # includes all all meteorological covariates
+                -contains("JSB") # weird useless variable
+                ) |>
+
+  # convert to a nice date object
+  dplyr::mutate(TIMESTAMP = ymd(TIMESTAMP)) |>
+  
+  # set all -9999 to NA
+  #dplyr::na_if(-9999) |> # NOTE: Newer tidyverse version no longer support this statement
+                        # instead, use `mutate(across(where(is.numeric), ~na_if(., -9999))) |> 
+  #here the alternative got used because the tidyverse used is newer
+  mutate(across(where(is.numeric),~na_if(., -9999)))|>
+      
+  # retain only data based on >=80% good-quality measurements
+  # overwrite bad data with NA (not dropping rows)
+  dplyr::mutate(GPP_NT_VUT_REF = ifelse(NEE_VUT_REF_QC < 0.8, NA, GPP_NT_VUT_REF),
+                TA_F = ifelse(TA_F_QC < 0.8, NA, TA_F),
+                SW_IN_F = ifelse(SW_IN_F_QC < 0.8, NA, SW_IN_F),
+                LW_IN_F = ifelse(LW_IN_F_QC < 0.8, NA, LW_IN_F),
+                VPD_F = ifelse(VPD_F_QC < 0.8, NA, VPD_F),
+                PA_F = ifelse(PA_F_QC < 0.8, NA, PA_F),
+                P_F = ifelse(P_F_QC < 0.8, NA, P_F),
+                WS_F = ifelse(WS_F_QC < 0.8, NA, WS_F)) |>
+  
+  # drop QC variables (no longer needed)
+  dplyr::select(-ends_with("_QC"))
+```
+
+Code from chapter 9.2.8
+```{r}
+# Data cleaning: looks ok, no obviously bad data
+# no long tail, therefore no further target engineering
+daily_fluxes |> 
+  ggplot(aes(x = GPP_NT_VUT_REF, y = ..count..)) +
+  geom_histogram()
+```
+
+from chapter 9.2.8 second part
+```{r warning=FALSE}
+# Data splitting
+set.seed(1982)  # for reproducibility
+split <- rsample::initial_split(daily_fluxes, prop = 0.7, strata = "VPD_F")
+daily_fluxes_train <- rsample::training(split)
+daily_fluxes_test <- rsample::testing(split)
+
+# Model and pre-processing formulation, use all variables but LW_IN_F
+pp <- recipes::recipe(GPP_NT_VUT_REF ~ SW_IN_F + VPD_F + TA_F, 
+                      data = daily_fluxes_train |> drop_na()) |> 
+  recipes::step_BoxCox(all_predictors()) |> 
+  recipes::step_center(all_numeric(), -all_outcomes()) |>
+  recipes::step_scale(all_numeric(), -all_outcomes())
+
+# Fit linear regression model
+mod_lm <- caret::train(
+  pp, 
+  data = daily_fluxes_train |> drop_na(), 
+  method = "lm",
+  trControl = caret::trainControl(method = "none"),
+  metric = "RMSE"
+)
+
+# Fit KNN model
+mod_knn <- caret::train(
+  pp, 
+  data = daily_fluxes_train |> drop_na(), 
+  method = "knn",
+  trControl = caret::trainControl(method = "none"),
+  tuneGrid = data.frame(k = 8),
+  metric = "RMSE"
+)
+```
+
+load evaluation function
+```{r}
+source("../R/eval_model.R") #load function, which is stored in another folder
+
+#call the function for the linear modell
+eval_model(mod = mod_lm, df_train=daily_fluxes_train, df_test=daily_fluxes_test) #call the function
+```
+
+evaluation for the knn modell
+```{r}
+#call the function for the knn modell
+eval_model(mod = mod_knn, df_train=daily_fluxes_train, df_test=daily_fluxes_test)
+```
+
+
+## 2 Interpretation
+### a)
+#### Question
+"Why is the difference between the evaluation on the training and the test set larger for the KNN model than for the linear regression model?"(Stocker 2023:Chapter9.4)
+#### Interpretation:
+The test set for the knn has a higher variance than the training set.
+
+### b)
+#### Question
+"Why (...) does the evaluation on the test set indicate a better model performance of the KNN model than the linear regression model?"(Stocker 2023:Chapter9.4)
+#### Results:
+the values for the knn are: Rsquared=0.72, RMSE=1.37
+the values for the lm are: Rsquared=0.62, RMSE=1.6
+#### Interpretation:
+If we look at the data and the plot we can see, that the points don't form a straight line. So a modell that is non-linear, such as knn, will better adapt to the data, than a linear model. Even dough a linear model is a very fast and easy approach in data analysis at has it's right to exist.
+
+### c)
+#### Question
+"How would you position the KNN and the linear regression model along the spectrum of the bias-variance trade-off?"(Stocker 2023:Chapter9.4)
+#### Interpretation:
+A linear regression modell is stable against outliners, because it is a straight line. But it has a bigger bias. So the linear regression has not an ideal bias-variance trade-off, even dough the difference between train and test set are very small in the exaple above.
+The knn model is more agile. When in a knn-modell the number of used neighbour is to high, the bias is high too, but the variance is low. The same vice versa. the optimal is somewhere in the middle. So the knn has theoretical the requirements to have a good bias-variance trade-off, but only if the number k is choosen wisely.
+
+## 3 Visualisation
+The task here is to visualize the temporal variations of the two models. therefore observed and predicted GPP shall be shown.
+
+```{r}
+plot_observed_GPP<-daily_fluxes|>drop_na()|>ggplot(
+  aes(x=TIMESTAMP,y=GPP_NT_VUT_REF)
+)+geom_point(size=0.5,alpha=0.5,color="blue")
+plot_observed_GPP
+```
+plot of the predicted GPP with linear regression model
+```{r}
+plot_predicted_lm_GPP<-daily_fluxes|>drop_na()|>ggplot(
+  aes(x=TIMESTAMP,y=predict(mod_lm,newdata=daily_fluxes|>drop_na()))
+)+geom_point(size=0.5,alpha=0.5,color="red")
+plot_predicted_lm_GPP
+```
+plot of the predicted GPP with knn-model
+```{r}
+plot_predicted_knn_GPP<-daily_fluxes|>drop_na()|>ggplot(
+  aes(x=TIMESTAMP,y=predict(mod_knn,newdata=daily_fluxes|>drop_na()))
+)+geom_point(size=0.5,alpha=0.5,color="green")
+plot_predicted_knn_GPP
+```
+all in one plot
+```{r}
+plot_all_GPP<-daily_fluxes|>drop_na()|>ggplot(
+  aes(x=TIMESTAMP,y=GPP_NT_VUT_REF))+
+  geom_point(size=0.5,alpha=0.5,color="blue")+
+  labs(x="timeaxis[y]",y="gross primary production")+
+  geom_line(aes(y=predict(mod_lm,newdata=daily_fluxes|>drop_na())),size=0.5,alpha=0.5,color="red")+
+geom_line(aes(y=predict(mod_knn,newdata=daily_fluxes|>drop_na())),size=0.5,alpha=0.5,color="green")
+plot_all_GPP
+```
+Description:
+In blue we can see the observed data,
+in red is the predicted data shown with the linear regression model and
+in green is the predicted data shown with the knn model
+
+Interpretation:
+We can see that the extreme values of the observed data weren't predicted by both models. The linear regression model is in the tendence from 2011 and 2012 a little bit to low in the winters.
+
+
+# The role of k
+
+## 1. Hypothesis
+First hypothesis for k approaching 1: The Rsquared will become bigger, the MAE will become smaller, because only the nearest neighbour will be took for calculation.
+
+Second hypothesis for k approaching n: The Rsquared will become smaller, because it fits more for the general data, because nearly all neighbours are taken. The MAE will then increase.
+
+## 2. Testing
+
+to do so the code from chapter 9.2.8 (Stocker 2023) is taken and adapted
+
+```{r warning=FALSE}
+# Data splitting
+  set.seed(12)  # for reproducibility
+  split <- rsample::initial_split(daily_fluxes, prop = 0.7, strata = "VPD_F")
+  daily_fluxes_train_1 <- rsample::training(split)
+  daily_fluxes_test_1 <- rsample::testing(split)
+#create a vector to store the i
+i_1<-NULL
+k_values<-c(1,10,20,50)
+
+
+for(i in k_values){
+  # Model and pre-processing formulation, use all variables but LW_IN_F
+  pp_1 <- recipes::recipe(GPP_NT_VUT_REF ~ SW_IN_F + VPD_F + TA_F, 
+                        data = daily_fluxes_train |> drop_na()) |> 
+    recipes::step_BoxCox(all_predictors()) |> 
+    recipes::step_center(all_numeric(), -all_outcomes()) |>
+    recipes::step_scale(all_numeric(), -all_outcomes())
+  
+  # Fit KNN model
+  mod_knn_1 <- caret::train(
+    pp_1, 
+    data = daily_fluxes_train_1 |> drop_na(), 
+    method = "knn",
+    trControl = caret::trainControl(method = "none"),
+    tuneGrid = data.frame(k = i),
+      metric = "MAE"#MAE is used here
+  )
+  
+  i_1[[i]]<-i
+  
+  #call the function for the knn modell
+  if(i==1){eval_model_plot1<-eval_model(mod = mod_knn_1, df_train=daily_fluxes_train_1, df_test=daily_fluxes_test_1)}
+  if(i==10){eval_model_plot10<-eval_model(mod = mod_knn_1, df_train=daily_fluxes_train_1, df_test=daily_fluxes_test_1)}
+if(i==20){eval_model_plot20<-eval_model(mod = mod_knn_1, df_train=daily_fluxes_train_1, df_test=daily_fluxes_test_1)}
+if(i==50){eval_model_plot50<-eval_model(mod = mod_knn_1, df_train=daily_fluxes_train_1, df_test=daily_fluxes_test_1)}
+}
+
+
+```
+
+for k=1
+```{r}
+eval_model_plot1
+```
+for k=1 the Rsquared is as predicted very high(=1)  and the RSME is very low (=0) on the training set.
+on the test set the Rsquared is 0.52 and the rmse=1.96
+
+for k=10
+```{r}
+eval_model_plot10
+```
+here for k=10
+is on the training set the Rsquared =0.71 and the RMSE=1.38
+for the Test set the Rsquared is=0.66 and the RMSE=1.58
+
+for k=20
+```{r}
+eval_model_plot20
+```
+here for k=20
+is on the training set the Rsquared =0.69 and the RMSE=1.42
+for the Test set the Rsquared is=0.66 and the RMSE=1.57, so it's a small difference to k=10
+
+
+for k=50
+```{r}
+eval_model_plot50
+```
+here for k=50
+is on the training set the Rsquared =0.67 and the RMSE=1.47
+for the Test set the Rsquared is=0.67 and the RMSE=1.56. Also are here the difference to k=10 and k=20 small.
+
+
+overall data
+```{r}
+data_for_different_k<-data.frame(k=c(1,10,20,50),Rsquared_train=c(1,0.71,0.69,0.67),RSME_train=c(0,1.38,1.42,1.47),Rsquared_test=c(0.52,0.66,0.66,0.67),RSME_test=c(0,1.58,1.57,1.56))
+#plot
+ggplot(data=data_for_different_k,aes(x=k))+
+  geom_line(aes(y=Rsquared_train),size=1,alpha=0.5,color="blue")+
+  geom_line(aes(y=RSME_train),size=1,alpha=0.5,color="purple")+
+  geom_line(aes(y=Rsquared_test),size=1,alpha=0.5,color="yellow")+
+  geom_line(aes(y=RSME_test),size=1,alpha=0.5,color="orange")+
+  labs(x="k-value",y="value in absolute numbers")
+```
+
+
+## 3. optimal k
+So for the train set the optimal value is somewhere near 6 or 7
+For the test set the optimal value is somewhere near 4
