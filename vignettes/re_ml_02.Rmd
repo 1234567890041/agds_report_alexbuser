@@ -1,0 +1,227 @@
+
+# Machine learning 2
+in this file is a attempt to solve the report exercise from chapter 10 in the book(Stocker 2023)
+
+# Task1 set aside 20% of the data
+parts of the code got overtaken from exercise form chapter 9 and then adjusted for this exercise
+
+## Code
+###libraries
+```{r message=FALSE}
+library(dplyr) #for select etc.
+library(lubridate) #for function ymd
+library(ggplot2) #for plotting ggplots
+library(rsample) #for data splitting
+library(recipes) #loads the recipe package
+library(caret) #for machine learning
+library(tidyr) #for drop_na
+```
+
+### importing Data
+Code from Chapter 9.2.3
+#### importing for DAVOS
+```{r}
+#here read.csv got used
+daily_fluxes_dav <- read.csv("../data/FLX_CH-Dav_FLUXNET2015_FULLSET_DD_1997-2014_1-3.csv") |>
+  # select only the variables we are interested in
+  dplyr::select(TIMESTAMP,
+                GPP_NT_VUT_REF, # the target
+                ends_with("_QC"), # quality control info
+                ends_with("_F"), # includes all all meteorological covariates
+                -contains("JSB") # weird useless variable
+                ) |>
+
+  # convert to a nice date object
+  dplyr::mutate(TIMESTAMP = ymd(TIMESTAMP)) |>
+  
+  # set all -9999 to NA
+  #dplyr::na_if(-9999) |> # NOTE: Newer tidyverse version no longer support this statement
+                        # instead, use `mutate(across(where(is.numeric), ~na_if(., -9999))) |> 
+  #here the alternative got used because the tidyverse used is newer
+  mutate(across(where(is.numeric),~na_if(., -9999)))|>
+      
+  # retain only data based on >=80% good-quality measurements
+  # overwrite bad data with NA (not dropping rows)
+  dplyr::mutate(GPP_NT_VUT_REF = ifelse(NEE_VUT_REF_QC < 0.8, NA, GPP_NT_VUT_REF),
+                TA_F = ifelse(TA_F_QC < 0.8, NA, TA_F),
+                SW_IN_F = ifelse(SW_IN_F_QC < 0.8, NA, SW_IN_F),
+                LW_IN_F = ifelse(LW_IN_F_QC < 0.8, NA, LW_IN_F),
+                VPD_F = ifelse(VPD_F_QC < 0.8, NA, VPD_F),
+                PA_F = ifelse(PA_F_QC < 0.8, NA, PA_F),
+                P_F = ifelse(P_F_QC < 0.8, NA, P_F),
+                WS_F = ifelse(WS_F_QC < 0.8, NA, WS_F)) |>
+  
+  # drop QC variables (no longer needed)
+  dplyr::select(-ends_with("_QC"))
+```
+
+Code from chapter 9.2.8
+```{r}
+# Data cleaning: looks ok, no obviously bad data
+# no long tail, therefore no further target engineering
+daily_fluxes_dav |> 
+  ggplot(aes(x = GPP_NT_VUT_REF, y = ..count..)) +
+  geom_histogram()
+```
+
+from chapter 9.2.8 second part
+```{r warning=FALSE}
+# Data splitting
+set.seed(1980)  # for reproducibility #adjusted number
+split <- rsample::initial_split(daily_fluxes_dav, prop = 0.8, strata = "VPD_F")#here 0.8 for 80% is inserted prop=0.8
+daily_fluxes_dav_train <- rsample::training(split)
+daily_fluxes_dav_test <- rsample::testing(split)
+
+# Model and pre-processing formulation, use all variables but LW_IN_F
+pp_dav <- recipes::recipe(GPP_NT_VUT_REF ~ SW_IN_F + VPD_F + TA_F, 
+                      data = daily_fluxes_dav_train |> drop_na()) |> 
+  recipes::step_BoxCox(all_predictors()) |> 
+  recipes::step_center(all_numeric(), -all_outcomes()) |>
+  recipes::step_scale(all_numeric(), -all_outcomes())
+
+# Fit linear regression model
+mod_lm_dav <- caret::train(
+  pp_dav, 
+  data = daily_fluxes_dav_train |> drop_na(), 
+  method = "lm",
+  trControl = caret::trainControl(method = "none"),
+  metric = "RMSE"
+)
+
+# Fit KNN model
+mod_knn_dav <- caret::train(
+  pp_dav, 
+  data = daily_fluxes_dav_train |> drop_na(), 
+  method = "knn",
+  trControl = caret::trainControl(method = "none"),
+  tuneGrid = data.frame(k = 8),
+  metric = "RMSE"
+)
+```
+
+load evaluation function
+```{r}
+source("../R/eval_model.R") #load function, which is stored in another folder
+
+#call the function for the linear modell
+eval_model(mod = mod_lm_dav, df_train=daily_fluxes_dav_train, df_test=daily_fluxes_dav_test) #call the function
+```
+
+
+#### importing for LAEGERN
+```{r}
+#here read.csv got used
+daily_fluxes_lae <- read.csv("../data/FLX_CH-Lae_FLUXNET2015_FULLSET_DD_2004-2014_1-4.csv") |>
+  # select only the variables we are interested in
+  dplyr::select(TIMESTAMP,
+                GPP_NT_VUT_REF, # the target
+                ends_with("_QC"), # quality control info
+                ends_with("_F"), # includes all all meteorological covariates
+                -contains("JSB") # weird useless variable
+                ) |>
+
+  # convert to a nice date object
+  dplyr::mutate(TIMESTAMP = ymd(TIMESTAMP)) |>
+  
+  # set all -9999 to NA
+  #dplyr::na_if(-9999) |> # NOTE: Newer tidyverse version no longer support this statement
+                        # instead, use `mutate(across(where(is.numeric), ~na_if(., -9999))) |> 
+  #here the alternative got used because the tidyverse used is newer
+  mutate(across(where(is.numeric),~na_if(., -9999)))|>
+      
+  # retain only data based on >=80% good-quality measurements
+  # overwrite bad data with NA (not dropping rows)
+  dplyr::mutate(GPP_NT_VUT_REF = ifelse(NEE_VUT_REF_QC < 0.8, NA, GPP_NT_VUT_REF),
+                TA_F = ifelse(TA_F_QC < 0.8, NA, TA_F),
+                SW_IN_F = ifelse(SW_IN_F_QC < 0.8, NA, SW_IN_F),
+                LW_IN_F = ifelse(LW_IN_F_QC < 0.8, NA, LW_IN_F),
+                VPD_F = ifelse(VPD_F_QC < 0.8, NA, VPD_F),
+                PA_F = ifelse(PA_F_QC < 0.8, NA, PA_F),
+                P_F = ifelse(P_F_QC < 0.8, NA, P_F),
+                WS_F = ifelse(WS_F_QC < 0.8, NA, WS_F)) |>
+  
+  # drop QC variables (no longer needed)
+  dplyr::select(-ends_with("_QC"))
+```
+
+```{r}
+library(visdat)
+plot2<-vis_miss(daily_fluxes_lae)
+plot2
+```
+we see that P_F is missing a 100%, so we drop it. Alternatively there would also be possible not to overwrite the data which has bad quality with NA, then it would maybe had more/any data for P_F
+```{r message=FALSE, warning=FALSE, paged.print=TRUE}
+daily_fluxes_lae|>dplyr::select(-ends_with("P_F"))
+```
+
+
+Code from chapter 9.2.8
+```{r}
+# Data cleaning: looks ok, no obviously bad data
+# no long tail, therefore no further target engineering
+daily_fluxes_lae |> 
+  ggplot(aes(x = GPP_NT_VUT_REF, y = ..count..)) +
+  geom_histogram()
+```
+
+from chapter 9.2.8 second part
+```{r warning=FALSE}
+# Data splitting
+set.seed(1979)  # for reproducibility #adjusted number
+split <- rsample::initial_split(daily_fluxes_lae, prop = 0.8, strata = "VPD_F")#here 0.8 for 80% is inserted prop=0.8
+daily_fluxes_lae_train <- rsample::training(split)
+daily_fluxes_lae_test <- rsample::testing(split)
+
+# Model and pre-processing formulation, use all variables but LW_IN_F
+pp_lae <- recipes::recipe(GPP_NT_VUT_REF ~ SW_IN_F + VPD_F + TA_F, 
+                      data = daily_fluxes_lae_train |> drop_na()) |> 
+  recipes::step_BoxCox(all_predictors()) |> 
+  recipes::step_center(all_numeric(), -all_outcomes()) |>
+  recipes::step_scale(all_numeric(), -all_outcomes())
+
+
+```
+# Fit linear regression model
+mod_lm_lae <- caret::train(
+  pp_lae, 
+  data = daily_fluxes_lae_train |> drop_na(), 
+  method = "lm",
+  trControl = caret::trainControl(method = "none"),
+  metric = "RMSE"
+)
+
+# Fit KNN model
+mod_knn_lae <- caret::train(
+  pp_lae, 
+  data = daily_fluxes_lae_train |> drop_na(), 
+  method = "knn",
+  trControl = caret::trainControl(method = "none"),
+  tuneGrid = data.frame(k = 8),
+  metric = "RMSE"
+)
+
+chunk above produced error. so the fir lm model and fit knn model got excluded so it can knit the file
+ERROR for lm for LAEGERN: Error in check_dims(x = x_dat, y = y_dat) : nrow(x) > 1 ist nicht TRUE
+couldn't be resolved.
+
+load evaluation function(got exclued so the file can be knit)
+#```{r}
+source("../R/eval_model.R") #load function, which is stored in another folder
+
+#call the function for the linear modell
+eval_model(mod = mod_lm_lae, df_train=daily_fluxes_lae_train, df_test=daily_fluxes_lae_test) #call the function
+
+#```
+
+
+
+# Task2 Compare
+with the error above the rest couldn't be done properly
+# Task3 Train
+see above
+# Task4 Charateristics
+One site, Davos, is in the mountains and higher above sealevel. See: https://fluxnet.org/sites/siteinfo/CH-Dav 
+Zielis, S., Etzold, S., Zweifel, R., Eugster, W., Haeni, M. and Buchmann, N.: NEP of a Swiss subalpine forest is significantly driven not only by current but also by previous year’s weather, Biogeosciences, 11(6), 1627–1635, 2014..
+
+The other is in the middlelands, so there is another forest around. See: https://fluxnet.org/sites/siteinfo/CH-Lae
+Etzold, S., Ruehr, N. K., Zweifel, R., Dobbertin, M., Zingg, A., Pluess, P., Häsler, R., Eugster, W. and Buchmann, N.: The Carbon Balance of Two Contrasting Mountain Forest Ecosystems in Switzerland: Similar Annual Trends, but Seasonal Differences, Ecosystems, 14(8), 1289–1309, 2011..
